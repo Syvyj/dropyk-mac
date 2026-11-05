@@ -23,7 +23,9 @@ cp -R build/Build/Products/Release/Dropyk.app "$APP"
 
 # Inside out: the bundled libraries (the app and the share extension each carry one), the share
 # extension (sandboxed, as extensions must be), the app.
-sign() { codesign --force --options runtime --timestamp=none -s "$IDENTITY" "$@"; }
+# No hardened runtime: it is there for Apple's notarization, which a self-signed build can't get,
+# and its library validation refuses libNearbyShare.dylib from a certificate without a Team ID.
+sign() { codesign --force --timestamp=none -s "$IDENTITY" "$@"; }
 find "$APP" -name "*.dylib" | while read -r lib; do sign "$lib"; done
 sign --entitlements ShareExtension/ShareExtension.entitlements "$APP/Contents/PlugIns/ShareExtension.appex"
 sign --entitlements NearDrop/NearDrop.entitlements "$APP"

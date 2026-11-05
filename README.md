@@ -4,7 +4,7 @@
 
 Receive files from Android phones on your Mac with Quick Share. Dropyk lives in the menu bar and saves files to Downloads.
 
-**[Download for macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip)** · **[Website](https://dropyk.syvyj.dev/)** · **[Installation](#installation)**
+**[Download for macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.dmg)** · **[Website](https://dropyk.syvyj.dev/)** · **[Installation](#installation)**
 
 `macOS 12+` `Wi‑Fi LAN` `Unlicense`
 
@@ -19,12 +19,14 @@ Dropyk is a fork of [NearDrop](https://github.com/grishka/NearDrop) by Grishka, 
 
 ## Installation
 
-1. Download [`Dropyk.zip`](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip), unzip it and move `Dropyk.app` to Applications.
+1. Download [`Dropyk.dmg`](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.dmg), open it and drag Dropyk to Applications.
 2. The app isn't signed with an Apple Developer ID, so the first time right-click it and choose **Open**, then confirm. Or run `xattr -dr com.apple.quarantine /Applications/Dropyk.app`.
 3. When macOS asks, allow Dropyk to **find devices on your local network** — without it phones won't see the Mac — and to show **notifications**.
 4. To start it with the Mac: System Settings → General → Login Items → add Dropyk.
 
 On the phone: Share → Quick Share, and pick your Mac. The phone and the Mac must be on the same Wi‑Fi.
+
+**Updates.** Dropyk checks GitHub on launch and once a day; a newer version shows *Update to Dropyk …* at the top of its menu, or use *Check for Updates…*. It downloads the new version, checks it against the release's checksum and its own signature, and restarts into it. Builds are signed with the same certificate every time, so macOS keeps Dropyk's permissions after an update.
 
 ## Limitations
 
@@ -36,8 +38,14 @@ These are NearDrop's:
 ## Building
 
 ```
+scripts/make-signing-cert.sh   # once: the "Dropyk Local Signing" certificate in your keychain
+scripts/make-release.sh        # build/release/Dropyk.dmg and Dropyk.dmg.sha256
+```
+
+A release carries both files; the in-app updater needs the checksum. Without the certificate you can still build an ad-hoc signed copy:
+
+```
 xcodebuild -project NearDrop.xcodeproj -scheme NearDrop -configuration Release -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
-cp -R build/Build/Products/Release/Dropyk.app /Applications/
 ```
 
 The README banners come from [`docs/banner.html`](docs/banner.html): `docs/render-banners.sh` (needs Google Chrome).

@@ -4,7 +4,7 @@
 
 Приймайте файли з Android-телефонів на Mac через Quick Share. Dropyk живе в рядку меню й зберігає файли в «Завантаження».
 
-**[Завантажити для macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip)** · **[Сайт](https://dropyk.syvyj.dev/uk/)** · **[Встановлення](#встановлення)**
+**[Завантажити для macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.dmg)** · **[Сайт](https://dropyk.syvyj.dev/uk/)** · **[Встановлення](#встановлення)**
 
 `macOS 12+` `Wi‑Fi LAN` `Unlicense`
 
@@ -19,12 +19,14 @@ Dropyk — це форк [NearDrop](https://github.com/grishka/NearDrop) від 
 
 ## Встановлення
 
-1. Завантажте [`Dropyk.zip`](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip), розпакуйте й перенесіть `Dropyk.app` в «Програми».
+1. Завантажте [`Dropyk.dmg`](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.dmg), відкрийте його й перетягніть Dropyk у «Програми».
 2. Застосунок не підписаний сертифікатом Apple Developer ID, тож уперше клацніть на ньому правою кнопкою, виберіть **Відкрити** й підтвердьте. Або виконайте `xattr -dr com.apple.quarantine /Applications/Dropyk.app`.
 3. Коли macOS спитає, дозвольте Dropyk **знаходити пристрої в локальній мережі** — без цього телефони не побачать Mac — і показувати **сповіщення**.
 4. Щоб запускався разом із Mac: Системні параметри → Загальні → Об'єкти входу → додайте Dropyk.
 
 На телефоні: Поділитися → Quick Share і виберіть свій Mac. Телефон і Mac мають бути в одній Wi‑Fi-мережі.
+
+**Оновлення.** Dropyk перевіряє GitHub під час запуску й раз на добу; якщо є новіша версія, нагорі його меню з'являється *Оновити до Dropyk …*, або скористайтеся *Перевірити оновлення…*. Він завантажує нову версію, звіряє її з контрольною сумою релізу й зі своїм підписом і перезапускається вже в ній. Збірки щоразу підписані тим самим сертифікатом, тож macOS після оновлення зберігає дозволи Dropyk.
 
 ## Обмеження
 
@@ -36,8 +38,14 @@ Dropyk — це форк [NearDrop](https://github.com/grishka/NearDrop) від 
 ## Збірка
 
 ```
+scripts/make-signing-cert.sh   # один раз: сертифікат «Dropyk Local Signing» у вашій «Связці ключів»
+scripts/make-release.sh        # build/release/Dropyk.dmg і Dropyk.dmg.sha256
+```
+
+У релізі мають бути обидва файли: вбудованому оновленню потрібна контрольна сума. Без сертифіката можна зібрати копію з ad-hoc підписом:
+
+```
 xcodebuild -project NearDrop.xcodeproj -scheme NearDrop -configuration Release -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
-cp -R build/Build/Products/Release/Dropyk.app /Applications/
 ```
 
 Банери для README робить [`docs/banner.html`](docs/banner.html): `docs/render-banners.sh` (потрібен Google Chrome).
