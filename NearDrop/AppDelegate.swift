@@ -6,6 +6,8 @@
 //
 
 import Cocoa
+import CryptoKit
+import Security
 import UserNotifications
 import NearbyShare
 
@@ -13,13 +15,20 @@ import NearbyShare
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, MainAppDelegate{
 	private var statusItem:NSStatusItem?
 	private var activeIncomingTransfers:[String:TransferInfo]=[:]
+	private var updateItem:NSMenuItem?
+	private var update:Updates.Release?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
 		let menu=NSMenu()
+		// Shown at the top once a newer release is found.
+		let updateItem=menu.addItem(withTitle: "", action: #selector(installUpdate), keyEquivalent: "")
+		updateItem.isHidden=true
+		self.updateItem=updateItem
 		menu.addItem(withTitle: NSLocalizedString("VisibleToEveryone", value: "Visible to everyone", comment: ""), action: nil, keyEquivalent: "")
 		menu.addItem(withTitle: String(format: NSLocalizedString("DeviceName", value: "Device name: %@", comment: ""), arguments: [Host.current().localizedName!]), action: nil, keyEquivalent: "")
 		let autoAcceptItem=menu.addItem(withTitle: NSLocalizedString("AutoAccept", value: "Accept transfers automatically", comment: ""), action: #selector(toggleAutoAccept(_:)), keyEquivalent: "")
 		autoAcceptItem.state=UserDefaults.standard.bool(forKey: "autoAccept") ? .on : .off
+		menu.addItem(withTitle: NSLocalizedString("CheckForUpdates", value: "Check for Updates…", comment: ""), action: #selector(checkForUpdatesNow), keyEquivalent: "")
 		menu.addItem(NSMenuItem.separator())
 		menu.addItem(withTitle: NSLocalizedString("Quit", value: "Quit Dropyk", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
 		statusItem=NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -44,6 +53,83 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		nc.setNotificationCategories([incomingTransfersCategory, errorsCategory])
 		NearbyConnectionManager.shared.mainAppDelegate=self
 		NearbyConnectionManager.shared.becomeVisible()
+		startUpdateChecks()
+	}
+	
+	// MARK: Updates
+	
+	/// On launch, then once a day: a newer release puts "Update to Dropyk X…" at the top of the menu.
+	private func startUpdateChecks(){
+		Task{
+			var launch=true
+			while true{
+				let last=UserDefaults.standard.object(forKey: "lastUpdateCheck") as? Date ?? .distantPast
+				if launch || Date().timeIntervalSince(last)>86_400, let release=try? await Updates.latest(){
+					UserDefaults.standard.set(Date(), forKey: "lastUpdateCheck")
+					await MainActor.run{ self.show(release) }
+				}
+				launch=false
+				try? await Task.sleep(nanoseconds: 3_600_000_000_000)
+			}
+		}
+	}
+	
+	private func show(_ release:Updates.Release){
+		let newer=Updates.isNewer(release.version, than: Updates.current)
+		update=newer ? release : nil
+		updateItem?.title=String(format: NSLocalizedString("UpdateTo", value: "Update to Dropyk %@…", comment: ""), release.version)
+		updateItem?.isHidden = !newer
+	}
+	
+	/// "Check for Updates…": the answer right away.
+	@objc func checkForUpdatesNow(){
+		Task{
+			guard let release=try? await Updates.latest() else {
+				await MainActor.run{ _=NSWorkspace.shared.open(Updates.releases) }
+				return
+			}
+			await MainActor.run{
+				self.show(release)
+				if self.update != nil{
+					self.installUpdate()
+				}else{
+					let alert=NSAlert()
+					alert.messageText=NSLocalizedString("UpToDate", value: "Dropyk is up to date", comment: "")
+					alert.informativeText=String(format: NSLocalizedString("UpToDateInfo", value: "Version %@ is the newest.", comment: ""), Updates.current)
+					NSApp.activate(ignoringOtherApps: true)
+					alert.runModal()
+				}
+			}
+		}
+	}
+	
+	/// Asks, then downloads, checks and restarts into the new version.
+	@objc func installUpdate(){
+		guard let release=update else { return }
+		let ask=NSAlert()
+		ask.messageText=String(format: NSLocalizedString("UpdateAsk", value: "Update to Dropyk %@?", comment: ""), release.version)
+		ask.informativeText=NSLocalizedString("UpdateAskInfo", value: "Dropyk downloads the new version, checks it and restarts.", comment: "")
+		ask.addButton(withTitle: NSLocalizedString("Update", value: "Update", comment: ""))
+		ask.addButton(withTitle: NSLocalizedString("Cancel", value: "Cancel", comment: ""))
+		NSApp.activate(ignoringOtherApps: true)
+		guard ask.runModal() == .alertFirstButtonReturn else { return }
+		updateItem?.isEnabled=false
+		Task{
+			do{
+				let staged=try await Updates.prepare(release)
+				await MainActor.run{ Updates.swapAndRelaunch(staged) }
+			}catch{
+				await MainActor.run{
+					self.updateItem?.isEnabled=true
+					let alert=NSAlert()
+					alert.messageText=NSLocalizedString("UpdateFailed", value: "Couldn’t update Dropyk", comment: "")
+					alert.informativeText=error.localizedDescription
+					alert.addButton(withTitle: NSLocalizedString("Download", value: "Download", comment: ""))
+					alert.addButton(withTitle: NSLocalizedString("Cancel", value: "Cancel", comment: ""))
+					if alert.runModal() == .alertFirstButtonReturn{ NSWorkspace.shared.open(Updates.releases) }
+				}
+			}
+		}
 	}
 	
 	func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -151,4 +237,134 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 struct TransferInfo{
 	let device:RemoteDeviceInfo
 	let transfer:TransferMetadata
+}
+
+/// The newest Dropyk release on GitHub, and installing it from inside the app — the same
+/// scheme as Shotleaf. Nothing about the user goes with the request.
+enum Updates{
+	struct Release{
+		let version:String
+		let download:URL
+		/// The release's "Dropyk.dmg.sha256", needed to install it from inside the app.
+		let checksum:URL?
+	}
+	
+	static let api=URL(string: "https://api.github.com/repos/Syvyj/dropyk-mac/releases/latest")!
+	static let releases=URL(string: "https://github.com/Syvyj/dropyk-mac/releases/latest")!
+	
+	static var current:String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
+	
+	/// "0.10.0" is newer than "0.9.1"; a leading "v" is ignored.
+	static func isNewer(_ a:String, than b:String) -> Bool{
+		let parts={ (s:String) in s.trimmingCharacters(in: CharacterSet(charactersIn: "v")).split(separator: ".").map{ Int($0) ?? 0 } }
+		let x=parts(a), y=parts(b)
+		for i in 0..<max(x.count, y.count){
+			let l = i<x.count ? x[i] : 0, r = i<y.count ? y[i] : 0
+			if l != r { return l>r }
+		}
+		return false
+	}
+	
+	static func latest() async throws -> Release{
+		var request=URLRequest(url: api, timeoutInterval: 20)
+		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+		let (data, _)=try await URLSession.shared.data(for: request)
+		struct Answer:Decodable{
+			struct Asset:Decodable{ let name:String; let browser_download_url:URL }
+			let tag_name:String
+			let assets:[Asset]
+		}
+		let answer=try JSONDecoder().decode(Answer.self, from: data)
+		let dmg=answer.assets.first{ $0.name.hasSuffix(".dmg") }?.browser_download_url ?? releases
+		let sum=answer.assets.first{ $0.name.hasSuffix(".dmg.sha256") }?.browser_download_url
+		return Release(version: answer.tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "v")), download: dmg, checksum: sum)
+	}
+	
+	/// Why an update couldn't be installed; the user can still download it by hand.
+	enum Failure:LocalizedError{
+		case notWritable, checksum, signature, unpack
+		
+		var errorDescription:String?{
+			switch self{
+			case .notWritable: return NSLocalizedString("UpdateNotWritable", value: "Dropyk can’t replace itself in the folder it’s in.", comment: "")
+			case .checksum: return NSLocalizedString("UpdateChecksum", value: "The download doesn’t match the release.", comment: "")
+			case .signature: return NSLocalizedString("UpdateSignature", value: "The downloaded app isn’t signed like this one.", comment: "")
+			case .unpack: return NSLocalizedString("UpdateUnpack", value: "The downloaded disk image couldn’t be opened.", comment: "")
+			}
+		}
+	}
+	
+	/// "5e1c…  Dropyk.dmg" → "5e1c…" (a SHA-256 in hex), else nil.
+	static func checksum(in file:String) -> String?{
+		guard let first=file.split(whereSeparator: \.isWhitespace).first?.lowercased(),
+			  first.count==64, first.allSatisfy(\.isHexDigit) else { return nil }
+		return first
+	}
+	
+	/// Downloads the release, checks it against its checksum and against this app's own
+	/// signature (same identifier, same certificate), and puts the new copy next to this
+	/// one. Downloaded by the app itself, it isn't marked as from the internet, so macOS
+	/// doesn't ask again on its first launch.
+	static func prepare(_ release:Release) async throws -> URL{
+		let folder=Bundle.main.bundleURL.deletingLastPathComponent()
+		guard FileManager.default.isWritableFile(atPath: folder.path) else { throw Failure.notWritable }
+		guard let sumURL=release.checksum else { throw Failure.checksum }
+		let (sum, _)=try await URLSession.shared.data(from: sumURL)
+		let (dmg, _)=try await URLSession.shared.download(from: release.download)
+		defer{ try? FileManager.default.removeItem(at: dmg) }
+		let digest=SHA256.hash(data: try Data(contentsOf: dmg)).map{ String(format: "%02x", $0) }.joined()
+		guard checksum(in: String(decoding: sum, as: UTF8.self))==digest else { throw Failure.checksum }
+		
+		let mount=FileManager.default.temporaryDirectory.appendingPathComponent("dropyk-update-\(UUID().uuidString)")
+		guard run("/usr/bin/hdiutil", "attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path) else { throw Failure.unpack }
+		defer{ _=run("/usr/bin/hdiutil", "detach", mount.path, "-force") }
+		let staged=folder.appendingPathComponent(".Dropyk-update.app")
+		try? FileManager.default.removeItem(at: staged)
+		guard run("/usr/bin/ditto", mount.appendingPathComponent("Dropyk.app").path, staged.path) else { throw Failure.unpack }
+		guard signedLikeThisApp(staged) else {
+			try? FileManager.default.removeItem(at: staged)
+			throw Failure.signature
+		}
+		return staged
+	}
+	
+	/// The new copy passes this app's designated requirement: its bundle identifier and
+	/// the certificate it's signed with ("Dropyk Local Signing").
+	static func signedLikeThisApp(_ app:URL) -> Bool{
+		var me:SecCode?, mine:SecStaticCode?, requirement:SecRequirement?, other:SecStaticCode?
+		guard SecCodeCopySelf([], &me)==errSecSuccess, let me,
+			  SecCodeCopyStaticCode(me, [], &mine)==errSecSuccess, let mine,
+			  SecCodeCopyDesignatedRequirement(mine, [], &requirement)==errSecSuccess, let requirement,
+			  SecStaticCodeCreateWithPath(app as CFURL, [], &other)==errSecSuccess, let other
+		else { return false }
+		let flags=SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
+		return SecStaticCodeCheckValidity(other, flags, requirement)==errSecSuccess
+	}
+	
+	/// Once this app has quit: the new copy takes its place (the old one comes back if
+	/// that fails) and starts. Same place and signature, so the permissions stay.
+	static func swapAndRelaunch(_ staged:URL){
+		let task=Process()
+		task.executableURL=URL(fileURLWithPath: "/bin/sh")
+		task.arguments=["-c", """
+			while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.1; done
+			rm -rf "$2"
+			if mv "$0" "$2" && mv "$1" "$0"; then rm -rf "$2"; else [ -d "$0" ] || mv "$2" "$0"; fi
+			open "$0"
+			""", Bundle.main.bundlePath, staged.path, Bundle.main.bundlePath+".old"]
+		try? task.run()
+		NSApp.terminate(nil)
+	}
+	
+	@discardableResult
+	private static func run(_ tool:String, _ arguments:String...) -> Bool{
+		let task=Process()
+		task.executableURL=URL(fileURLWithPath: tool)
+		task.arguments=arguments
+		task.standardOutput=FileHandle.nullDevice
+		task.standardError=FileHandle.nullDevice
+		do{ try task.run() }catch{ return false }
+		task.waitUntilExit()
+		return task.terminationStatus==0
+	}
 }
