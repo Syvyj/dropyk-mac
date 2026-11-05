@@ -15,14 +15,16 @@ BUILD=$(git rev-list --count HEAD)
 OUT=build/release
 rm -rf "$OUT"
 xcodebuild -project NearDrop.xcodeproj -scheme NearDrop -configuration Release -derivedDataPath build -quiet \
+  -destination 'generic/platform=macOS' \
   CURRENT_PROJECT_VERSION="$BUILD" CODE_SIGNING_ALLOWED=NO build
 mkdir -p "$OUT/dmg"
 APP="$OUT/dmg/Dropyk.app"
 cp -R build/Build/Products/Release/Dropyk.app "$APP"
 
-# Inside out: the bundled library, the share extension (sandboxed, as extensions must be), the app.
+# Inside out: the bundled libraries (the app and the share extension each carry one), the share
+# extension (sandboxed, as extensions must be), the app.
 sign() { codesign --force --options runtime --timestamp=none -s "$IDENTITY" "$@"; }
-sign "$APP/Contents/Frameworks/libNearbyShare.dylib"
+find "$APP" -name "*.dylib" | while read -r lib; do sign "$lib"; done
 sign --entitlements ShareExtension/ShareExtension.entitlements "$APP/Contents/PlugIns/ShareExtension.appex"
 sign --entitlements NearDrop/NearDrop.entitlements "$APP"
 codesign --verify --deep --strict "$APP"
