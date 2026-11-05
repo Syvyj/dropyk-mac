@@ -8,13 +8,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dropyk"
           }
         }
       },
@@ -27,13 +33,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "NearDrop needs access to your local network to send and receive files."
+            "value" : "Dropyk needs access to your local network to send and receive files."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop необходим доступ к устройствам в вашей локальной сети для приёма и передачи файлов."
+            "value" : "Dropyk необходим доступ к устройствам в вашей локальной сети для приёма и передачи файлов."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dropyk потрібен доступ до локальної мережі, щоб приймати й надсилати файли."
           }
         }
       }

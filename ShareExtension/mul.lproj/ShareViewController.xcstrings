@@ -2,67 +2,67 @@
   "sourceLanguage" : "en",
   "strings" : {
     "0xp-rC-2gr.title" : {
-      "comment" : "Class = \"NSTextFieldCell\"; title = \"NearDrop\"; ObjectID = \"0xp-rC-2gr\";",
+      "comment" : "Class = \"NSTextFieldCell\"; title = \"Dropyk\"; ObjectID = \"0xp-rC-2gr\";",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "ro" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NearDrop"
+            "value" : "Dropyk"
           }
         }
       },
@@ -215,6 +215,12 @@
             "state" : "translated",
             "value" : "Отсканируйте этот QR-код на Android-устройстве. Передача начнётся автоматически."
           }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Відскануйте цей QR-код Android-пристроєм. Передача почнеться автоматично."
+          }
         }
       }
     },
@@ -232,6 +238,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Использовать QR-код..."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Використати QR-код…"
           }
         }
       }
@@ -316,6 +328,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Если соединиться не удаётся, убедитесь, что устройство и Mac находятся в одной сети, и что роутер не блокирует передачу данных по локальной сети."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Якщо не виходить, перевірте, що пристрій і Mac в одній мережі і що роутер не блокує обмін даними в локальній мережі."
           }
         }
       }

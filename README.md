@@ -1,94 +1,51 @@
-**NearDrop** is a partial implementation of [Google's Nearby Share](https://blog.google/products/android/nearby-share/)/Quick Share for macOS.
+<img src="docs/banner-en.png" alt="Dropyk for Mac — files from your Android phone to the Mac with Quick Share">
 
-[Protocol documentation](/PROTOCOL.md) is available separately.
+**English** · [Українська](README.uk.md)
 
-The app lives in your menu bar and saves files to your downloads folder. It's that simple, really.
+Receive files from Android phones on your Mac with Quick Share. Dropyk lives in the menu bar and saves files to Downloads.
 
-## Limitations
+**[Download for macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip)** · **[Website](https://dropyk.syvyj.dev/)** · **[Installation](#installation)**
 
-* **Wi-Fi LAN only**. Your Android device and your Mac need to be on the same network for this app to work. Google's implementation supports multiple mediums, including Wi-Fi Direct, Wi-Fi hotspot, Bluetooth, some kind of 5G peer-to-peer connection, and even a WebRTC-based protocol that goes over the internet through Google servers. Wi-Fi direct isn't supported on macOS (Apple has their own, incompatible, AWDL thing, used in AirDrop). Bluetooth needs further reverse engineering.
-* **Visible to everyone on your network at all times** while the app is running. Limited visibility (contacts etc) requires talking to Google servers, and becoming temporarily visible requires listening for whatever triggers the "device nearby is sharing" notification.
+`macOS 12+` `Wi‑Fi LAN` `Unlicense`
+
+Dropyk is a fork of [NearDrop](https://github.com/grishka/NearDrop) by Grishka, who reverse engineered the Quick Share protocol and wrote nearly all of the code. See the [protocol documentation](PROTOCOL.md). For sending to a TV, see [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android).
+
+## What's different from NearDrop
+
+- **Accept automatically.** A menu bar toggle, *Accept transfers automatically*, skips the confirmation for every transfer. It accepts from anyone on your network, so turn it on only on a network you trust. Off by default.
+- **Several files go into a folder.** A transfer with more than one file is saved to `~/Downloads/<device name> <date time>/`, and the folder opens in Finder when it's done. A single file still goes straight to Downloads.
+- **Its own name, icon and bundle ID** (`com.dokboss.Dropyk`). Don't run it together with NearDrop: both would show up on the network.
+- **macOS 12 or later**, because current Xcode no longer builds for 10.15.
 
 ## Installation
 
-Download the latest build from the releases section, unzip, move to your applications folder.
+1. Download [`Dropyk.zip`](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.zip), unzip it and move `Dropyk.app` to Applications.
+2. The app isn't signed with an Apple Developer ID, so the first time right-click it and choose **Open**, then confirm. Or run `xattr -dr com.apple.quarantine /Applications/Dropyk.app`.
+3. When macOS asks, allow Dropyk to **find devices on your local network** — without it phones won't see the Mac — and to show **notifications**.
+4. To start it with the Mac: System Settings → General → Login Items → add Dropyk.
 
-Before running for the first time, right-click the app and select "Open", then confirm running an app from unidentified developer.
+On the phone: Share → Quick Share, and pick your Mac. The phone and the Mac must be on the same Wi‑Fi.
 
-Alternatively, you can use [Sentinel](https://github.com/alienator88/Sentinel) to bypass Gatekeeper.
+## Limitations
 
-If you want the app to start on boot, [follow these steps to add NearDrop as a login item.](https://support.apple.com/guide/mac-help/open-items-automatically-when-you-log-in-mh15189/mac)
+These are NearDrop's:
 
-#### Installation with Homebrew
+- **Wi‑Fi LAN only.** Wi‑Fi Direct, Bluetooth and the other transports Google uses are not supported.
+- **Visible to everyone on your network** while the app is running.
+
+## Building
 
 ```
-brew install grishka/grishka/neardrop && sudo xattr -r -d com.apple.quarantine "/Applications/NearDrop.app"
+xcodebuild -project NearDrop.xcodeproj -scheme NearDrop -configuration Release -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
+cp -R build/Build/Products/Release/Dropyk.app /Applications/
 ```
 
-## Contributing
+The README banners come from [`docs/banner.html`](docs/banner.html): `docs/render-banners.sh` (needs Google Chrome).
 
-Pull requests that change the readme will not be accepted.
+## License
 
-Any AI-assisted contributions will not be accepted.
+[Unlicense](UNLICENSE), same as NearDrop.
 
-## FAQ
+## Support the author
 
-#### The app would not open because "Apple cannot check it for malicious software", you gotta fix your shit
-
-Right-click the app in Finder and select "Open". Or, open System Settings -> Privacy and security, scroll down and allow the app to run.
-
-#### My Android device doesn't see my Mac
-
-Make sure both devices are on the same Wi-Fi network. Local network communication may not work on some public networks — for example, in coffee shops or hotels. If you're on your own network, check your router settings to make sure it's not blocking local devices from talking to each other.
-
-#### How do I send files?
-
-Right-click a file in Finder, select Share, then select NearDrop.
-
-#### How do I send links?
-
-From the menu bar: File -> Share -> NearDrop. Safari also has a share button on the toolbar.
-
-#### My Mac doesn't see my Android device
-
-Unfortunately, Android listens for specific BLE (Bluetooth Low Energy) broadcasts to automatically become visible, and macOS doesn't allow apps to send them.
-
-On all Android devices, you scan the QR code generated by NearDrop to make everything happen automatically. You can also create an intent shortcut for the URL `https://quickshare.google/qrcode#key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA` to launch the same activity, but **make sure that the visibility of your device is set to public**, otherwise it will not work. Complete intent:
-- Data: `https://quickshare.google/qrcode#key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`
-- Action: `android.intent.action.VIEW`
-
-##### Samsung devices
-
-QR code (or the corresponding intent) is your only option.
-
-##### Non-Samsung devices
-
-Tap the "Quick Share" button in the "Google Files" app.
-
-To make it more easily accessible and/or if you don't want to install Google Files, you can use an app like [one of these](https://forum.xda-developers.com/t/how-to-manually-create-a-homescreen-shortcut-to-a-known-unique-android-activity.4336833/) to create a shortcut to launch one of these activity intents:
-
-- Option 1:
-  - Action: `com.google.android.gms.RECEIVE_NEARBY`
-  - Mime type: `*/*`
-- Option 2:
-  - Component name: `com.google.android.gms/.nearby.sharing.receive.ReceiveActivityQrCodeAlias`
-
-#### Can the menu bar icon be removed?
-
-Yes. Drag the icon off the menu bar while holding cmd. To bring it back, launch the app a second time, while it's already running.
-
-#### I'm sending something to my Mac, the Android device displays a PIN code, but nothing happens on the Mac
-
-Make sure you have "do not disturb" off. The notification may also sometimes (rarely) end up in the notification center without being shown as a popup first — I'm not sure why this happens.
-
-#### Why is the app not notarized?
-
-Because I don't want to pay Apple $99 a year for the privilege of developing macOS apps and I oppose their idea of security. The slightly less scary security warning isn't worth $99/year IMO.
-
-#### Why is this not on the app store?
-
-Because I don't want to pay Apple $99 a year for the privilege of developing macOS apps. I also don't want to have to go through the review process.
-
-#### Why not the other way around, i.e. AirDrop on Android?
-
-While I am an Android developer, and I have looked into this, this is nigh-impossible. AirDrop uses [AWDL](https://stackoverflow.com/questions/19587701/what-is-awdl-apple-wireless-direct-link-and-how-does-it-work), Apple's own proprietary take on peer-to-peer Wi-Fi. This works on top of 802.11 itself, the low-level Wi-Fi protocol, and thus can not be implemented without messing around with the Wi-Fi adapter drivers and raw packets and all that. It might be possible on Android, but it would at the very least require root and possibly a custom kernel. There is [an open-source implementation of AWDL and AirDrop for Linux](https://owlink.org/code/).
+Dropyk is free and will stay free. [Ko-fi](https://ko-fi.com/syvyj) · [Buy Me a Coffee](https://buymeacoffee.com/syvyj) · [Monobank jar](https://send.monobank.ua/jar/5juJPj142b)
