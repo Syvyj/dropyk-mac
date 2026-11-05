@@ -22,7 +22,8 @@ class InboundNearbyConnection: NearbyConnection{
 	private var cipherCommitment:Data?
 	
 	private var textPayloadID:Int64=0
-	
+	private var destinationFolder:URL?
+
 	enum State{
 		case initial, receivedConnectionRequest, sentUkeyServerInit, receivedUkeyClientFinish, sentConnectionResponse, sentPairedKeyResult, receivedPairedKeyResult, waitingForUserConsent, receivingFiles, disconnected
 	}
@@ -112,6 +113,9 @@ class InboundNearbyConnection: NearbyConnection{
 			fileInfo.progress?.unpublish()
 			transferredFiles.removeValue(forKey: id)
 			if transferredFiles.isEmpty{
+				if let folder=destinationFolder{
+					NSWorkspace.shared.open(folder)
+				}
 				try sendDisconnectionAndDisconnect()
 			}
 		}
@@ -303,7 +307,15 @@ class InboundNearbyConnection: NearbyConnection{
 		guard frame.hasV1, frame.v1.hasIntroduction else { throw NearbyError.requiredFieldMissing("shareNearbyFrame.v1.introduction") }
 		currentState = .waitingForUserConsent
 		if frame.v1.introduction.fileMetadata.count>0 && frame.v1.introduction.textMetadata.isEmpty{
-			let downloadsDirectory=(try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)).resolvingSymlinksInPath()
+			var downloadsDirectory=(try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)).resolvingSymlinksInPath()
+			if frame.v1.introduction.fileMetadata.count>1{
+				let dateFormatter=DateFormatter()
+				dateFormatter.dateFormat="yyyy-MM-dd HH.mm.ss"
+				let folderName="\(remoteDeviceInfo?.name ?? "Dropyk") \(dateFormatter.string(from: Date()))"
+					.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+				downloadsDirectory=makeFileDestinationURL(downloadsDirectory.appendingPathComponent(folderName))
+				destinationFolder=downloadsDirectory
+			}
 			for file in frame.v1.introduction.fileMetadata{
 				let dest=makeFileDestinationURL(downloadsDirectory.appendingPathComponent(file.name))
 				let info=InternalFileInfo(meta: FileMetadata(name: file.name, size: file.size, mimeType: file.mimeType),
@@ -355,6 +367,9 @@ class InboundNearbyConnection: NearbyConnection{
 	
 	private func acceptTransfer(){
 		do{
+			if let folder=destinationFolder{
+				try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+			}
 			for (id, file) in transferredFiles{
 				FileManager.default.createFile(atPath: file.destinationURL.path, contents: nil)
 				let handle=try FileHandle(forWritingTo: file.destinationURL)
