@@ -4,18 +4,21 @@
 
 Receive files from Android phones on your Mac with Quick Share. Dropyk lives in the menu bar and saves files to Downloads.
 
+Works with any Android phone that has Quick Share, which is every phone with Google Play: Samsung, Pixel, Xiaomi, Motorola, OnePlus and others. The phone and the Mac just need to be on the same Wi‑Fi.
+
 **[Download for macOS](https://github.com/Syvyj/dropyk-mac/releases/latest/download/Dropyk.dmg)** · **[Website](https://dropyk.syvyj.dev/)** · **[Installation](#installation)**
 
 `macOS 12+` `Wi‑Fi LAN` `Unlicense`
 
-Dropyk is a fork of [NearDrop](https://github.com/grishka/NearDrop) by Grishka, who reverse engineered the Quick Share protocol and wrote nearly all of the code. See the [protocol documentation](PROTOCOL.md). For sending to a TV, see [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android).
+To send files to a TV, there's [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android).
 
-## What's different from NearDrop
+## Features
 
 - **Accept automatically.** A menu bar toggle, *Accept transfers automatically*, skips the confirmation for every transfer. It accepts from anyone on your network, so turn it on only on a network you trust. Off by default.
-- **Several files go into a folder.** A transfer with more than one file is saved to `~/Downloads/<device name> <date time>/`, and the folder opens in Finder when it's done. A single file still goes straight to Downloads.
-- **Its own name, icon and bundle ID** (`com.dokboss.Dropyk`). Don't run it together with NearDrop: both would show up on the network.
-- **macOS 12 or later**, because current Xcode no longer builds for 10.15.
+- **Several files go into a folder.** A transfer with more than one file is saved to `~/Downloads/<device name> <date time>/`, and the folder opens in Finder when it's done. A single file goes straight to Downloads.
+- **Big files.** Long videos and hundreds of photos in one go.
+- **Updates itself** from GitHub releases, see below.
+- **English and Ukrainian.**
 
 ## Installation
 
@@ -28,9 +31,11 @@ On the phone: Share → Quick Share, and pick your Mac. The phone and the Mac mu
 
 **Updates.** Dropyk checks GitHub on launch and once a day; a newer version shows *Update to Dropyk …* at the top of its menu, or use *Check for Updates…*. It downloads the new version, checks it against the release's checksum and its own signature, and restarts into it. Builds are signed with the same certificate every time, so macOS keeps Dropyk's permissions after an update.
 
-## Limitations
+## Why a fork
 
-These are NearDrop's:
+Dropyk is built on [NearDrop](https://github.com/grishka/NearDrop), which reverse engineered the Quick Share protocol and has nearly all of the code that makes this work. See the [protocol documentation](PROTOCOL.md). Dropyk adds the features above, its own name, icon and bundle ID (`com.dokboss.Dropyk`), and needs macOS 12 or later, because current Xcode no longer builds for 10.15. Don't run it together with NearDrop: both would show up on the network.
+
+## Limitations
 
 - **Wi‑Fi LAN only.** Wi‑Fi Direct, Bluetooth and the other transports Google uses are not supported.
 - **Visible to everyone on your network** while the app is running.
