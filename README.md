@@ -31,6 +31,16 @@ On the phone: Share → Quick Share, and pick your Mac. The phone and the Mac mu
 
 **Updates.** Dropyk checks GitHub on launch and once a day; a newer version shows *Update to Dropyk …* at the top of its menu, or use *Check for Updates…*. It downloads the new version, checks it against the release's checksum and its own signature, and restarts into it. Builds are signed with the same certificate every time, so macOS keeps Dropyk's permissions after an update.
 
+## Support the author
+
+Dropyk is free and will stay free. If it saves you time, you can buy me a coffee:
+
+<p>
+  <a href="https://ko-fi.com/syvyj"><img src="docs/support-kofi-en.png" alt="Ko-fi" width="260"></a>
+  <a href="https://buymeacoffee.com/syvyj"><img src="docs/support-bmc-en.png" alt="Buy Me a Coffee" width="260"></a>
+  <a href="https://send.monobank.ua/jar/5juJPj142b"><img src="docs/support-mono-en.png" alt="Monobank jar" width="260"></a>
+</p>
+
 ## Why a fork
 
 Dropyk is built on [NearDrop](https://github.com/grishka/NearDrop), which reverse engineered the Quick Share protocol and has nearly all of the code that makes this work. See the [protocol documentation](PROTOCOL.md). Dropyk adds the features above, its own name, icon and bundle ID (`com.dokboss.Dropyk`), and needs macOS 12 or later, because current Xcode no longer builds for 10.15. Don't run it together with NearDrop: both would show up on the network.
@@ -58,7 +68,3 @@ The README banners come from [`docs/banner.html`](docs/banner.html): `docs/rende
 ## License
 
 [Unlicense](UNLICENSE), same as NearDrop.
-
-## Support the author
-
-Dropyk is free and will stay free. [Ko-fi](https://ko-fi.com/syvyj) · [Buy Me a Coffee](https://buymeacoffee.com/syvyj) · [Monobank jar](https://send.monobank.ua/jar/5juJPj142b)

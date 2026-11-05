@@ -31,6 +31,16 @@
 
 **Оновлення.** Dropyk перевіряє GitHub під час запуску й раз на добу; якщо є новіша версія, нагорі його меню з'являється *Оновити до Dropyk …*, або скористайтеся *Перевірити оновлення…*. Він завантажує нову версію, звіряє її з контрольною сумою релізу й зі своїм підписом і перезапускається вже в ній. Збірки щоразу підписані тим самим сертифікатом, тож macOS після оновлення зберігає дозволи Dropyk.
 
+## Підтримати автора
+
+Dropyk безкоштовний і таким лишиться. Якщо він вам зручний, можна пригостити кавою:
+
+<p>
+  <a href="https://send.monobank.ua/jar/5juJPj142b"><img src="docs/support-mono-uk.png" alt="Банка Monobank" width="260"></a>
+  <a href="https://ko-fi.com/syvyj"><img src="docs/support-kofi-uk.png" alt="Ko-fi" width="260"></a>
+  <a href="https://buymeacoffee.com/syvyj"><img src="docs/support-bmc-uk.png" alt="Buy Me a Coffee" width="260"></a>
+</p>
+
 ## Чому форк
 
 Dropyk побудований на [NearDrop](https://github.com/grishka/NearDrop): там розібрали протокол Quick Share і там майже весь код, завдяки якому це працює. Див. [опис протоколу](PROTOCOL.md). Dropyk додає можливості, описані вище, власну назву, іконку й bundle ID (`com.dokboss.Dropyk`) і потребує macOS 12 або новішої, бо сучасний Xcode більше не збирає для 10.15. Не запускайте разом із NearDrop: в мережі з'являться обидва.
@@ -58,7 +68,3 @@ xcodebuild -project NearDrop.xcodeproj -scheme NearDrop -configuration Release -
 ## Ліцензія
 
 [Unlicense](UNLICENSE), як і в NearDrop.
-
-## Підтримати автора
-
-Dropyk безкоштовний і таким лишиться. [Банка Monobank](https://send.monobank.ua/jar/5juJPj142b) · [Ko-fi](https://ko-fi.com/syvyj) · [Buy Me a Coffee](https://buymeacoffee.com/syvyj)
