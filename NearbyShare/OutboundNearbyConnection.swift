@@ -127,6 +127,14 @@ class OutboundNearbyConnection:NearbyConnection{
 		}
 	}
 	
+	/// The other side hung up (a TV nobody answered drops the request after a while): say so,
+	/// or the Share window waits forever. After a finish, a cancel or an error the manager ignores this.
+	override func handleConnectionClosure() {
+		super.handleConnectionClosure()
+		if cancelled { return }
+		delegate?.outboundConnection(connection: self, failedWithError: lastError ?? (currentState == .sentIntroduction ? NearbyError.canceled(reason: .timedOut) : NearbyError.inputOutput))
+	}
+
 	override func protocolError() {
 		super.protocolError()
 		delegate?.outboundConnection(connection: self, failedWithError: lastError!)
