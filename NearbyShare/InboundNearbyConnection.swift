@@ -99,19 +99,21 @@ class InboundNearbyConnection: NearbyConnection{
 	
 	override func processFileChunk(frame: Location_Nearby_Connections_PayloadTransferFrame) throws{
 		let id=frame.payloadHeader.id
+		guard currentState == .receivingFiles else { throw NearbyError.protocolError("File data before the user accepted") }
 		guard let fileInfo=transferredFiles[id] else { throw NearbyError.protocolError("File payload ID \(id) is not known") }
 		let currentOffset=fileInfo.bytesTransferred
+		let body=frame.payloadChunk.body
 		guard frame.payloadChunk.offset==currentOffset else { throw NearbyError.protocolError("Invalid offset into file \(frame.payloadChunk.offset), expected \(currentOffset)") }
-		guard currentOffset+Int64(frame.payloadChunk.body.count)<=fileInfo.meta.size else { throw NearbyError.protocolError("Transferred file size exceeds previously specified value") }
-		if frame.payloadChunk.body.count>0{
-			fileInfo.fileHandle?.write(frame.payloadChunk.body)
-			transferredFiles[id]!.bytesTransferred+=Int64(frame.payloadChunk.body.count)
+		guard currentOffset+Int64(body.count)<=fileInfo.meta.size else { throw NearbyError.protocolError("Transferred file size exceeds previously specified value") }
+		if body.count>0{
+			try openHandle(id).write(contentsOf: body)
+			transferredFiles[id]!.bytesTransferred+=Int64(body.count)
 			fileInfo.progress?.completedUnitCount=transferredFiles[id]!.bytesTransferred
-		}else if (frame.payloadChunk.flags & 1)==1{
-			try fileInfo.fileHandle?.close()
-			transferredFiles[id]!.fileHandle=nil
-			fileInfo.progress?.unpublish()
-			transferredFiles.removeValue(forKey: id)
+		}
+		// The last chunk may carry data too; and a file that ends short of its size is broken, not done.
+		if (frame.payloadChunk.flags & 1)==1{
+			guard transferredFiles[id]!.bytesTransferred==fileInfo.meta.size else { throw NearbyError.protocolError("File ended early") }
+			try finishFile(id)
 			if transferredFiles.isEmpty{
 				if let folder=destinationFolder{
 					NSWorkspace.shared.open(folder)
@@ -120,26 +122,62 @@ class InboundNearbyConnection: NearbyConnection{
 			}
 		}
 	}
-	
+
 	override func processBytesPayload(payload: Data, id: Int64) throws -> Bool {
-		if id==textPayloadID{
-			if let urlStr=String(data: payload, encoding: .utf8), let url=URL(string: urlStr){
+		let isText=textPayloadID != 0 && id==textPayloadID
+		guard isText || transferredFiles[id] != nil else { return false }
+		// Only once the user accepted: before that, any device on the network could make the Mac open a link or write a file.
+		guard currentState == .receivingFiles else { throw NearbyError.protocolError("Payload before the user accepted") }
+		if isText{
+			// Web links only: a file:// or app link from the phone mustn't open anything on the Mac.
+			if let text=String(data: payload, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+			   let url=URL(string: text), ["http", "https"].contains(url.scheme?.lowercased()){
 				NSWorkspace.shared.open(url)
 			}
 			try sendDisconnectionAndDisconnect()
 			return true
-		}else if let fileInfo=transferredFiles[id]{
-			fileInfo.fileHandle?.write(payload)
-			transferredFiles[id]!.bytesTransferred+=Int64(payload.count)
-			fileInfo.progress?.completedUnitCount=transferredFiles[id]!.bytesTransferred
-			try fileInfo.fileHandle?.close()
-			transferredFiles[id]!.fileHandle=nil
-			fileInfo.progress?.unpublish()
-			transferredFiles.removeValue(forKey: id)
-			try sendDisconnectionAndDisconnect()
-			return true
 		}
-		return false
+		try openHandle(id).write(contentsOf: payload)
+		transferredFiles[id]!.bytesTransferred=Int64(payload.count)
+		try finishFile(id)
+		try sendDisconnectionAndDisconnect()
+		return true
+	}
+
+	/// Opened at its first chunk, not at accept: hundreds of photos opened at once would hit the open-file limit (256).
+	private func openHandle(_ id:Int64) throws -> FileHandle{
+		if let handle=transferredFiles[id]!.fileHandle{ return handle }
+		let handle=try FileHandle(forWritingTo: transferredFiles[id]!.destinationURL)
+		transferredFiles[id]!.fileHandle=handle
+		return handle
+	}
+
+	private func finishFile(_ id:Int64) throws{
+		try transferredFiles[id]!.fileHandle?.close()
+		transferredFiles[id]!.progress?.unpublish()
+		transferredFiles.removeValue(forKey: id)
+	}
+
+	/// The name's last path part, without characters that trip up Finder: "../x" can't leave Downloads. Same rule as Drop.safeName on the TV.
+	static func safeFileName(_ raw:String) -> String{
+		let last=raw.split(whereSeparator: { $0=="/" || $0=="\\" }).last.map(String.init) ?? ""
+		var scalars=String.UnicodeScalarView()
+		for s in last.unicodeScalars{
+			scalars.append(s.value<0x20 || ":*?\"<>|".unicodeScalars.contains(s) ? "_" : s)
+		}
+		var name=String(scalars).trimmingCharacters(in: .whitespaces)
+		if name.allSatisfy({ $0=="." }){ name="file" }
+		if name.count>120{
+			let ext=(name as NSString).pathExtension
+			name=(1...16).contains(ext.count) ? String(name.prefix(119-ext.count))+"."+ext : String(name.prefix(120))
+		}
+		return name
+	}
+
+	/// Room for [bytes] and 200 MB to spare, as on the TV; true when the volume doesn't say.
+	private static func enoughSpace(_ bytes:Int64, at url:URL) -> Bool{
+		guard let free=try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage else { return true }
+		return bytes+200*1024*1024<=free
 	}
 	
 	private func processConnectionRequestFrame(_ frame:Location_Nearby_Connections_OfflineFrame) throws{
@@ -308,6 +346,11 @@ class InboundNearbyConnection: NearbyConnection{
 		currentState = .waitingForUserConsent
 		if frame.v1.introduction.fileMetadata.count>0 && frame.v1.introduction.textMetadata.isEmpty{
 			var downloadsDirectory=(try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)).resolvingSymlinksInPath()
+			let total=frame.v1.introduction.fileMetadata.reduce(Int64(0)){ $0+max($1.size, 0) }
+			guard InboundNearbyConnection.enoughSpace(total, at: downloadsDirectory) else {
+				rejectTransfer(with: .notEnoughSpace)
+				return
+			}
 			if frame.v1.introduction.fileMetadata.count>1{
 				let dateFormatter=DateFormatter()
 				dateFormatter.dateFormat="yyyy-MM-dd HH.mm.ss"
@@ -317,8 +360,10 @@ class InboundNearbyConnection: NearbyConnection{
 				destinationFolder=downloadsDirectory
 			}
 			for file in frame.v1.introduction.fileMetadata{
-				let dest=makeFileDestinationURL(downloadsDirectory.appendingPathComponent(file.name))
-				let info=InternalFileInfo(meta: FileMetadata(name: file.name, size: file.size, mimeType: file.mimeType),
+				guard file.size>=0 else { throw NearbyError.protocolError("Negative file size") }
+				let name=InboundNearbyConnection.safeFileName(file.name)
+				let dest=makeFileDestinationURL(downloadsDirectory.appendingPathComponent(name))
+				let info=InternalFileInfo(meta: FileMetadata(name: name, size: file.size, mimeType: file.mimeType),
 										  payloadID: file.payloadID,
 										  destinationURL: dest)
 				transferredFiles[file.payloadID]=info
@@ -356,7 +401,8 @@ class InboundNearbyConnection: NearbyConnection{
 	}
 	
 	func submitUserConsent(accepted:Bool){
-		DispatchQueue.global(qos: .utility).async {
+		// The connection's own queue: accepting touches the same state and sequence numbers as the incoming frames.
+		NearbyConnection.dispatchQueue.async {
 			if accepted{
 				self.acceptTransfer()
 			}else{
@@ -371,9 +417,7 @@ class InboundNearbyConnection: NearbyConnection{
 				try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 			}
 			for (id, file) in transferredFiles{
-				FileManager.default.createFile(atPath: file.destinationURL.path, contents: nil)
-				let handle=try FileHandle(forWritingTo: file.destinationURL)
-				transferredFiles[id]!.fileHandle=handle
+				guard FileManager.default.createFile(atPath: file.destinationURL.path, contents: nil) else { throw NearbyError.inputOutput }
 				let progress=Progress()
 				progress.fileURL=file.destinationURL
 				progress.totalUnitCount=file.meta.size
@@ -412,6 +456,7 @@ class InboundNearbyConnection: NearbyConnection{
 	
 	private func deletePartiallyReceivedFiles() throws{
 		for (_, file) in transferredFiles{
+			try? file.fileHandle?.close()
 			guard file.created else { continue }
 			try FileManager.default.removeItem(at: file.destinationURL)
 		}

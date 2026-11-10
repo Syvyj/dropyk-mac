@@ -227,7 +227,8 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 			conn.delegate=self
 			conn.start()
 		}
-		tcpListener.start(queue: .global(qos: .utility))
+		// Main queue: activeConnections is also changed there (consent, closing), so one thread touches it.
+		tcpListener.start(queue: .main)
 	}
 	
 	private static func generateEndpointID()->[UInt8]{

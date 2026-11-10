@@ -16,7 +16,7 @@ import BigInt
 
 class NearbyConnection{
 	internal static let SANE_FRAME_LENGTH=5*1024*1024
-	private static let dispatchQueue=DispatchQueue(label: "me.grishka.NearDrop.queue", qos: .utility) // FIFO (non-concurrent) queue to avoid those exciting concurrency bugs
+	internal static let dispatchQueue=DispatchQueue(label: "me.grishka.NearDrop.queue", qos: .utility) // FIFO (non-concurrent) queue to avoid those exciting concurrency bugs
 	
 	internal let connection:NWConnection
 	internal var remoteDeviceInfo:RemoteDeviceInfo?
@@ -237,11 +237,14 @@ class NearbyConnection{
 		let hmac=Data(HMAC<SHA256>.authenticationCode(for: smsg.headerAndBody, using: recvHmacKey!))
 		guard hmac==smsg.signature else { throw NearbyError.protocolError("hmac!=signature") }
 		let headerAndBody=try Securemessage_HeaderAndBody(serializedData: smsg.headerAndBody)
+		// The sender sets both: a short IV would be read past its end, a bad body used to crash the app.
+		guard headerAndBody.header.iv.count==kCCBlockSizeAES128 else { throw NearbyError.protocolError("IV length \(headerAndBody.header.iv.count)") }
 		var decryptedData=Data(count: headerAndBody.body.count)
-		
+
 		var decryptedLength:Int=0
+		var status:CCCryptorStatus=0
 		decryptedData.withUnsafeMutableBytes({
-			let status=CCCrypt(
+			status=CCCrypt(
 				CCOperation(kCCDecrypt),
 				CCAlgorithm(kCCAlgorithmAES128),
 				CCOptions(kCCOptionPKCS7Padding),
@@ -251,8 +254,8 @@ class NearbyConnection{
 				$0.baseAddress, $0.count,
 				&decryptedLength
 			)
-			guard status==kCCSuccess else { fatalError("CCCrypt error: \(status)") }
 		})
+		guard status==kCCSuccess else { throw NearbyError.protocolError("Can't decrypt: \(status)") }
 		decryptedData=decryptedData.prefix(decryptedLength)
 		let d2dMsg=try Securegcm_DeviceToDeviceMessage(serializedData: decryptedData)
 		guard d2dMsg.hasMessage, d2dMsg.hasSequenceNumber else { throw NearbyError.requiredFieldMissing("d2dMessage.message|sequenceNumber") }
@@ -280,6 +283,11 @@ class NearbyConnection{
 				guard chunk.offset==buffer.count else {
 					payloadBuffers.removeValue(forKey: payloadID)
 					throw NearbyError.protocolError("Unexpected chunk offset \(chunk.offset), expected \(buffer.count)")
+				}
+				// The announced size is checked above; without this the buffer would grow as long as chunks come.
+				guard Int64(buffer.count+chunk.body.count)<=header.totalSize else {
+					payloadBuffers.removeValue(forKey: payloadID)
+					throw NearbyError.protocolError("Bytes payload larger than announced")
 				}
 				if chunk.hasBody {
 					buffer.append(chunk.body)

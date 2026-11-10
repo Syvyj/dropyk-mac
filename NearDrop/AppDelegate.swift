@@ -161,7 +161,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 	
 	func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-		let transferID=response.notification.request.content.userInfo["transferID"]! as! String
+		// Error notifications carry no transfer: clicking one used to crash the app.
+		guard let transferID=response.notification.request.content.userInfo["transferID"] as? String else {
+			completionHandler()
+			return
+		}
 		NearbyConnectionManager.shared.submitUserConsent(transferID: transferID, accept: response.actionIdentifier=="ACCEPT")
 		if response.actionIdentifier != "ACCEPT"{
 			activeIncomingTransfers.removeValue(forKey: transferID)
@@ -268,7 +272,8 @@ enum Updates{
 	static func latest() async throws -> Release{
 		var request=URLRequest(url: api, timeoutInterval: 20)
 		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-		let (data, _)=try await URLSession.shared.data(for: request)
+		let (data, response)=try await URLSession.shared.data(for: request)
+		guard (response as? HTTPURLResponse)?.statusCode==200 else { throw URLError(.badServerResponse) }
 		struct Answer:Decodable{
 			struct Asset:Decodable{ let name:String; let browser_download_url:URL }
 			let tag_name:String
