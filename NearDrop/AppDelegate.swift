@@ -9,6 +9,7 @@ import Cocoa
 import CryptoKit
 import Security
 import UserNotifications
+import ServiceManagement
 import NearbyShare
 
 @main
@@ -28,6 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		menu.addItem(withTitle: String(format: NSLocalizedString("DeviceName", value: "Device name: %@", comment: ""), arguments: [Host.current().localizedName!]), action: nil, keyEquivalent: "")
 		let autoAcceptItem=menu.addItem(withTitle: NSLocalizedString("AutoAccept", value: "Accept transfers automatically", comment: ""), action: #selector(toggleAutoAccept(_:)), keyEquivalent: "")
 		autoAcceptItem.state=UserDefaults.standard.bool(forKey: "autoAccept") ? .on : .off
+		if #available(macOS 13.0, *){
+			let loginItem=menu.addItem(withTitle: NSLocalizedString("LaunchAtLogin", value: "Open at Login", comment: ""), action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
+			loginItem.state=SMAppService.mainApp.status == .enabled ? .on : .off
+		}
 		menu.addItem(withTitle: NSLocalizedString("CheckForUpdates", value: "Check for Updates…", comment: ""), action: #selector(checkForUpdatesNow), keyEquivalent: "")
 		menu.addItem(NSMenuItem.separator())
 		menu.addItem(withTitle: NSLocalizedString("Quit", value: "Quit Dropyk", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
@@ -161,8 +166,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 	
 	func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+		let userInfo=response.notification.request.content.userInfo
+		// "Received": show the files in Finder.
+		if let paths=userInfo["reveal"] as? [String]{
+			NSWorkspace.shared.activateFileViewerSelecting(paths.map{ URL(fileURLWithPath: $0) })
+			completionHandler()
+			return
+		}
 		// Error notifications carry no transfer: clicking one used to crash the app.
-		guard let transferID=response.notification.request.content.userInfo["transferID"] as? String else {
+		guard let transferID=userInfo["transferID"] as? String else {
 			completionHandler()
 			return
 		}
@@ -177,6 +189,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let enabled = sender.state != .on
 		UserDefaults.standard.set(enabled, forKey: "autoAccept")
 		sender.state=enabled ? .on : .off
+	}
+
+	/// "Open at Login": the system's own login item, the same one System Settings → Login Items lists.
+	@available(macOS 13.0, *)
+	@objc func toggleLaunchAtLogin(_ sender:NSMenuItem){
+		let service=SMAppService.mainApp
+		do{
+			if service.status == .enabled{
+				try service.unregister()
+			}else{
+				try service.register()
+				// macOS may want the person to switch it on there first.
+				if service.status == .requiresApproval{ SMAppService.openSystemSettingsLoginItems() }
+			}
+		}catch{
+			NSApp.activate(ignoringOtherApps: true)
+			NSAlert(error: error).runModal()
+		}
+		sender.state=service.status == .enabled ? .on : .off
+	}
+
+	/// Something arrived — with automatic accepting, the only sign of it. Clicking shows the files in Finder.
+	private func notifyReceived(_ files:[URL], from device:RemoteDeviceInfo){
+		let content=UNMutableNotificationContent()
+		content.title=String(format: NSLocalizedString("ReceivedTitle", value: "Received from %@", comment: ""), device.name)
+		content.subtitle=NSLocalizedString("ShowInFinder", value: "Click to show in Finder", comment: "")
+		content.body=files.count==1 ? files[0].lastPathComponent : String.localizedStringWithFormat(NSLocalizedString("NFiles", value: "%d files", comment: ""), files.count)
+		content.userInfo=["reveal": files.map(\.path)]
+		UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "received_"+UUID().uuidString, content: content, trigger: nil))
 	}
 
 	func obtainUserConsent(for transfer: TransferMetadata, from device: RemoteDeviceInfo) {
@@ -209,8 +250,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		self.activeIncomingTransfers[transfer.id]=TransferInfo(device: device, transfer: transfer)
 	}
 	
-	func incomingTransfer(id: String, didFinishWith error: Error?) {
+	func incomingTransfer(id: String, didFinishWith error: Error?, saved: [URL]) {
 		guard let transfer=self.activeIncomingTransfers[id] else {return}
+		if error==nil && !saved.isEmpty{
+			notifyReceived(saved, from: transfer.device)
+		}
 		if let error=error{
 			let notificationContent=UNMutableNotificationContent()
 			notificationContent.title=String(format: NSLocalizedString("TransferError", value: "Failed to receive files from %@", comment: ""), arguments: [transfer.device.name])

@@ -23,6 +23,8 @@ class InboundNearbyConnection: NearbyConnection{
 	
 	private var textPayloadID:Int64=0
 	private var destinationFolder:URL?
+	/// Files that arrived in full; read once the connection has closed.
+	private(set) var savedFiles:[URL]=[]
 
 	enum State{
 		case initial, receivedConnectionRequest, sentUkeyServerInit, receivedUkeyClientFinish, sentConnectionResponse, sentPairedKeyResult, receivedPairedKeyResult, waitingForUserConsent, receivingFiles, disconnected
@@ -154,6 +156,7 @@ class InboundNearbyConnection: NearbyConnection{
 
 	private func finishFile(_ id:Int64) throws{
 		try transferredFiles[id]!.fileHandle?.close()
+		savedFiles.append(transferredFiles[id]!.destinationURL)
 		transferredFiles[id]!.progress?.unpublish()
 		transferredFiles.removeValue(forKey: id)
 	}

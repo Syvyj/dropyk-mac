@@ -169,7 +169,8 @@ struct EndpointInfo{
 
 public protocol MainAppDelegate{
 	func obtainUserConsent(for transfer:TransferMetadata, from device:RemoteDeviceInfo)
-	func incomingTransfer(id:String, didFinishWith error:Error?)
+	/// [saved]: the files that arrived in full, for "Show in Finder".
+	func incomingTransfer(id:String, didFinishWith error:Error?, saved:[URL])
 }
 
 public protocol ShareExtensionDelegate:AnyObject{
@@ -266,7 +267,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	
 	func connectionWasTerminated(connection:InboundNearbyConnection, error:Error?){
 		guard let delegate=mainAppDelegate else {return}
-		delegate.incomingTransfer(id: connection.id, didFinishWith: error)
+		delegate.incomingTransfer(id: connection.id, didFinishWith: error, saved: connection.savedFiles)
 		activeConnections.removeValue(forKey: connection.id)
 	}
 	
