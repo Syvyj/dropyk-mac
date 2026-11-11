@@ -1961,6 +1961,40 @@
         }
       }
     },
+    "CheckFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t check for updates"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося перевірити оновлення"
+          }
+        }
+      }
+    },
+    "CheckFailedInfo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub didn’t answer. Check the internet connection, or see the releases page."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub не відповів. Перевірте з’єднання з інтернетом або відкрийте сторінку релізів."
+          }
+        }
+      }
+    },
     "UpdateFailed" : {
       "extractionState" : "manual",
       "localizations" : {

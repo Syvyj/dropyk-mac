@@ -10,13 +10,14 @@ Works with any Android phone that has Quick Share, which is every phone with Goo
 
 `macOS 12+` `Wi‑Fi LAN` `Unlicense`
 
-To send files to a TV, there's [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android).
+On the TV, [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android) receives from phones and from this Mac.
 
 ## Features
 
 - **Accept automatically.** A menu bar toggle, *Accept transfers automatically*, skips the confirmation for every transfer. It accepts from anyone on your network, so turn it on only on a network you trust. Off by default.
 - **Several files go into a folder.** A transfer with more than one file is saved to `~/Downloads/<device name> <date time>/`, and the folder opens in Finder when it's done. A single file goes straight to Downloads.
 - **A notification when files arrive** — click it to see them in Finder. With automatic accepting, that's how you know something came.
+- **Send to a TV.** In Finder or Safari, Share → Dropyk, then pick a TV running [Dropyk for Android TV](https://github.com/Syvyj/dropyk-android) (open, or receiving in the background). Files and links; accept on the TV.
 - **Big files.** Long videos and hundreds of photos in one go.
 - **Updates itself** from GitHub releases, see below.
 - **English and Ukrainian.**

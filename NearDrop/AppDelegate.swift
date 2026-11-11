@@ -90,7 +90,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	@objc func checkForUpdatesNow(){
 		Task{
 			guard let release=try? await Updates.latest() else {
-				await MainActor.run{ _=NSWorkspace.shared.open(Updates.releases) }
+				// Asked for by the person: say it failed, don't just open a browser.
+				await MainActor.run{
+					let alert=NSAlert()
+					alert.messageText=NSLocalizedString("CheckFailed", value: "Couldn’t check for updates", comment: "")
+					alert.informativeText=NSLocalizedString("CheckFailedInfo", value: "GitHub didn’t answer. Check the internet connection, or see the releases page.", comment: "")
+					alert.addButton(withTitle: NSLocalizedString("Download", value: "Download", comment: ""))
+					alert.addButton(withTitle: NSLocalizedString("Cancel", value: "Cancel", comment: ""))
+					NSApp.activate(ignoringOtherApps: true)
+					if alert.runModal() == .alertFirstButtonReturn{ NSWorkspace.shared.open(Updates.releases) }
+				}
 				return
 			}
 			await MainActor.run{
