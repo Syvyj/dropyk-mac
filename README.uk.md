@@ -33,6 +33,16 @@
 
 **Оновлення.** Dropyk перевіряє GitHub під час запуску й раз на добу; якщо є новіша версія, нагорі його меню з'являється *Оновити до Dropyk …*, або скористайтеся *Перевірити оновлення…*. Він завантажує нову версію, звіряє її з контрольною сумою релізу й зі своїм підписом і перезапускається вже в ній. Збірки щоразу підписані тим самим сертифікатом, тож macOS після оновлення зберігає дозволи Dropyk.
 
+## Від того ж автора
+
+[![Likhtar Home](https://raw.githubusercontent.com/Syvyj/Syvyj/main/assets/likhtar-home-card.png)](https://likhtar.syvyj.dev/uk/)
+
+**Likhtar Home.** Спокійний домашній екран для Android TV і Google TV: спершу фільми, без реклами. [Сайт](https://likhtar.syvyj.dev/uk/) · [GitHub](https://github.com/Syvyj/likhtar-home)
+
+[![Shotleaf](https://raw.githubusercontent.com/Syvyj/Syvyj/main/assets/shotleaf-card.png)](https://shotleaf.syvyj.dev/uk/)
+
+**Shotleaf.** Скріншоти, історія буфера й сніпети в рядку меню Mac. [Сайт](https://shotleaf.syvyj.dev/uk/) · [GitHub](https://github.com/Syvyj/shotleaf)
+
 ## Підтримати автора
 
 Dropyk безкоштовний і таким лишиться. Якщо він вам зручний, можна пригостити кавою:

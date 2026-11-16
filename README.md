@@ -33,6 +33,16 @@ On the phone: Share → Quick Share, and pick your Mac. The phone and the Mac mu
 
 **Updates.** Dropyk checks GitHub on launch and once a day; a newer version shows *Update to Dropyk …* at the top of its menu, or use *Check for Updates…*. It downloads the new version, checks it against the release's checksum and its own signature, and restarts into it. Builds are signed with the same certificate every time, so macOS keeps Dropyk's permissions after an update.
 
+## More from the author
+
+[![Likhtar Home](https://raw.githubusercontent.com/Syvyj/Syvyj/main/assets/likhtar-home-card.png)](https://likhtar.syvyj.dev)
+
+**Likhtar Home.** A calm home screen for Android TV and Google TV: films first, no ads. [Website](https://likhtar.syvyj.dev) · [GitHub](https://github.com/Syvyj/likhtar-home)
+
+[![Shotleaf](https://raw.githubusercontent.com/Syvyj/Syvyj/main/assets/shotleaf-card.png)](https://shotleaf.syvyj.dev)
+
+**Shotleaf.** Screenshots, clipboard history and snippets in the Mac menu bar. [Website](https://shotleaf.syvyj.dev) · [GitHub](https://github.com/Syvyj/shotleaf)
+
 ## Support the author
 
 Dropyk is free and will stay free. If it saves you time, you can buy me a coffee:
