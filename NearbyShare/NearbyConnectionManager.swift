@@ -249,7 +249,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 			0, 0
 		]
 		let name=Data(nameBytes).urlSafeBase64EncodedString()
-		let endpointInfo=EndpointInfo(name: Host.current().localizedName!, deviceType: .computer)
+		let endpointInfo=EndpointInfo(name: Host.current().localizedName ?? "Mac", deviceType: .computer)
 		
 		let port:Int32=Int32(tcpListener.port!.rawValue)
 		mdnsService=NetService(domain: "", type: "_FC9F5ED42C8A._tcp.", name: name, port: port)

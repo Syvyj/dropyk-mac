@@ -46,28 +46,31 @@ class ShareViewController: NSViewController, ShareExtensionDelegate{
 		super.loadView()
 	
 		let item = self.extensionContext!.inputItems[0] as! NSExtensionItem
-			if let attachments = item.attachments {
-			for attachment in attachments as NSArray{
-				let provider=attachment as! NSItemProvider
+		if let attachments = item.attachments, !attachments.isEmpty {
+			let group=DispatchGroup()
+			var found=[URL?](repeating: nil, count: attachments.count) // in the order they were picked
+			for (i, provider) in attachments.enumerated(){
+				group.enter()
 				provider.loadItem(forTypeIdentifier: kUTTypeURL as String) { data, err in
+					var url:URL?
 					if let urlData=data as? Data{
-						if let url=URL(dataRepresentation: urlData, relativeTo: nil, isAbsolute: false){
-							self.urls.append(url)
-							if self.urls.count==attachments.count{
-								DispatchQueue.main.async {
-									self.urlsReady()
-								}
-							}
-						}
-					}else if let url=data as? NSURL{
-						self.urls.append(url as URL)
-						if self.urls.count==attachments.count{
-							DispatchQueue.main.async {
-								self.urlsReady()
-							}
-						}
+						url=URL(dataRepresentation: urlData, relativeTo: nil, isAbsolute: false)
+					}else if let nsURL=data as? NSURL{
+						url=nsURL as URL
+					}
+					DispatchQueue.main.async {
+						found[i]=url
+						group.leave()
 					}
 				}
+			}
+			group.notify(queue: .main){
+				guard found.allSatisfy({ $0 != nil }) else {
+					self.extensionContext!.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: nil))
+					return
+				}
+				self.urls=found.compactMap{ $0 }
+				self.urlsReady()
 			}
 		} else {
 			let cancelError = NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: nil)
@@ -171,8 +174,8 @@ class ShareViewController: NSViewController, ShareExtensionDelegate{
 	private func urlsReady(){
 		for url in urls{
 			if url.isFileURL{
-				let isDirectory=UnsafeMutablePointer<ObjCBool>.allocate(capacity: 1)
-				if FileManager.default.fileExists(atPath: url.path, isDirectory: isDirectory) && isDirectory.pointee.boolValue{
+				var isDirectory:ObjCBool=false
+				if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue{
 					print("Canceling share request because URL \(url) is a directory")
 					let cancelError = NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: nil)
 					self.extensionContext!.cancelRequest(withError: cancelError)
@@ -296,16 +299,18 @@ class ShareViewController: NSViewController, ShareExtensionDelegate{
 }
 
 fileprivate func imageForDeviceType(type:RemoteDeviceInfo.DeviceType)->NSImage{
-	let imageName:String
+	let imageName:String, symbol:String
 	switch type{
 	case .tablet:
-		imageName="com.apple.ipad"
+		imageName="com.apple.ipad"; symbol="ipad"
 	case .computer:
-		imageName="com.apple.macbookpro-13-unibody"
+		imageName="com.apple.macbookpro-13-unibody"; symbol="laptopcomputer"
 	default: // also .phone
-		imageName="com.apple.iphone"
+		imageName="com.apple.iphone"; symbol="iphone"
 	}
-	return NSImage(contentsOfFile: "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/\(imageName).icns")!
+	// The system's own pictures; a later macOS may move them, so a plain symbol stands in.
+	return NSImage(contentsOfFile: "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/\(imageName).icns")
+		?? NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage()
 }
 
 extension ShareViewController:NSCollectionViewDataSource{

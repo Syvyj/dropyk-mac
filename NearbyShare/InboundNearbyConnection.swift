@@ -118,7 +118,7 @@ class InboundNearbyConnection: NearbyConnection{
 			try finishFile(id)
 			if transferredFiles.isEmpty{
 				if let folder=destinationFolder{
-					NSWorkspace.shared.open(folder)
+					DispatchQueue.main.async{ NSWorkspace.shared.open(folder) }
 				}
 				try sendDisconnectionAndDisconnect()
 			}
@@ -134,7 +134,7 @@ class InboundNearbyConnection: NearbyConnection{
 			// Web links only: a file:// or app link from the phone mustn't open anything on the Mac.
 			if let text=String(data: payload, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
 			   let url=URL(string: text), ["http", "https"].contains(url.scheme?.lowercased()){
-				NSWorkspace.shared.open(url)
+				DispatchQueue.main.async{ NSWorkspace.shared.open(url) }
 			}
 			try sendDisconnectionAndDisconnect()
 			return true
@@ -462,6 +462,9 @@ class InboundNearbyConnection: NearbyConnection{
 			try? file.fileHandle?.close()
 			guard file.created else { continue }
 			try FileManager.default.removeItem(at: file.destinationURL)
+		}
+		if let folder=destinationFolder, (try? FileManager.default.contentsOfDirectory(atPath: folder.path))?.isEmpty==true{
+			try? FileManager.default.removeItem(at: folder)
 		}
 	}
 }

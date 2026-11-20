@@ -147,8 +147,8 @@ class OutboundNearbyConnection:NearbyConnection{
 		frame.v1.type = .connectionRequest
 		frame.v1.connectionRequest=Location_Nearby_Connections_ConnectionRequestFrame()
 		frame.v1.connectionRequest.endpointID=String(bytes: NearbyConnectionManager.shared.endpointID, encoding: .ascii)!
-		frame.v1.connectionRequest.endpointName=Host.current().localizedName!
-		let endpointInfo=EndpointInfo(name: Host.current().localizedName!, deviceType: .computer)
+		frame.v1.connectionRequest.endpointName=Host.current().localizedName ?? "Mac"
+		let endpointInfo=EndpointInfo(name: Host.current().localizedName ?? "Mac", deviceType: .computer)
 		frame.v1.connectionRequest.endpointInfo=endpointInfo.serialize()
 		frame.v1.connectionRequest.mediums=[.wifiLan]
 		sendFrameAsync(try frame.serializedData())
@@ -316,7 +316,7 @@ class OutboundNearbyConnection:NearbyConnection{
 					meta.type = .unknown
 				}
 				meta.payloadID=Int64.random(in: Int64.min...Int64.max)
-				queue.append(OutgoingFileTransfer(url: url, payloadID: meta.payloadID, handle: try FileHandle(forReadingFrom: url), totalBytes: meta.size, currentOffset: 0))
+				queue.append(OutgoingFileTransfer(url: url, payloadID: meta.payloadID, handle: nil, totalBytes: meta.size, currentOffset: 0))
 				introduction.v1.introduction.fileMetadata.append(meta)
 				totalBytesToSend+=meta.size
 			}
@@ -378,16 +378,14 @@ class OutboundNearbyConnection:NearbyConnection{
 				return
 			}
 			currentTransfer=queue.removeFirst()
+			currentTransfer!.handle=try FileHandle(forReadingFrom: currentTransfer!.url)
 		}
 		
-		let fileBuffer:Data
-		if #available(macOS 10.15.4, *) {
-			guard let _fileBuffer=try currentTransfer!.handle!.read(upToCount: 512*1024) else{
-				throw NearbyError.inputOutput
-			}
-			fileBuffer=_fileBuffer
-		} else {
-			fileBuffer=currentTransfer!.handle!.readData(ofLength: 512*1024)
+		// At the end of a file the read gives nil: an empty file is one empty chunk, then its EOF.
+		let fileBuffer=try currentTransfer!.handle!.read(upToCount: 512*1024) ?? Data()
+		// A file that got shorter since it was announced would otherwise send empty chunks forever.
+		if fileBuffer.isEmpty && currentTransfer!.currentOffset<currentTransfer!.totalBytes{
+			throw NearbyError.inputOutput
 		}
 		
 		var transfer=Location_Nearby_Connections_PayloadTransferFrame()
@@ -418,7 +416,7 @@ class OutboundNearbyConnection:NearbyConnection{
 		print("sent file chunk, current transfer: \(String(describing: currentTransfer))")
 		#endif
 		totalBytesSent+=Int64(fileBuffer.count)
-		delegate?.outboundConnection(connection: self, transferProgress: Double(totalBytesSent)/Double(totalBytesToSend))
+		delegate?.outboundConnection(connection: self, transferProgress: totalBytesToSend>0 ? Double(totalBytesSent)/Double(totalBytesToSend) : 1)
 		
 		if currentTransfer!.currentOffset==currentTransfer!.totalBytes{
 			// Signal end of file (yes, all this for one bit)
@@ -451,7 +449,7 @@ class OutboundNearbyConnection:NearbyConnection{
 fileprivate struct OutgoingFileTransfer{
 	let url:URL
 	let payloadID:Int64
-	let handle:FileHandle?
+	var handle:FileHandle?
 	let totalBytes:Int64
 	var currentOffset:Int64
 }

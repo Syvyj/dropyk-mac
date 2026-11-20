@@ -26,7 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		updateItem.isHidden=true
 		self.updateItem=updateItem
 		menu.addItem(withTitle: NSLocalizedString("VisibleToEveryone", value: "Visible to everyone", comment: ""), action: nil, keyEquivalent: "")
-		menu.addItem(withTitle: String(format: NSLocalizedString("DeviceName", value: "Device name: %@", comment: ""), arguments: [Host.current().localizedName!]), action: nil, keyEquivalent: "")
+		menu.addItem(withTitle: String(format: NSLocalizedString("DeviceName", value: "Device name: %@", comment: ""), arguments: [Host.current().localizedName ?? "Mac"]), action: nil, keyEquivalent: "")
 		let autoAcceptItem=menu.addItem(withTitle: NSLocalizedString("AutoAccept", value: "Accept transfers automatically", comment: ""), action: #selector(toggleAutoAccept(_:)), keyEquivalent: "")
 		autoAcceptItem.state=UserDefaults.standard.bool(forKey: "autoAccept") ? .on : .off
 		if #available(macOS 13.0, *){
@@ -166,6 +166,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		alert.informativeText=NSLocalizedString("NotificationsDenied.Message", value: "Dropyk needs to be able to display notifications for incoming file transfers. Please allow notifications in System Settings.", comment: "")
 		alert.addButton(withTitle: NSLocalizedString("NotificationsDenied.OpenSettings", value: "Open settings", comment: ""))
 		alert.addButton(withTitle: NSLocalizedString("Quit", value: "Quit Dropyk", comment: ""))
+		NSApp.activate(ignoringOtherApps: true)
 		let result=alert.runModal()
 		if result==NSApplication.ModalResponse.alertFirstButtonReturn{
 			NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!)
@@ -367,9 +368,11 @@ enum Updates{
 		let folder=Bundle.main.bundleURL.deletingLastPathComponent()
 		guard FileManager.default.isWritableFile(atPath: folder.path) else { throw Failure.notWritable }
 		guard let sumURL=release.checksum else { throw Failure.checksum }
-		let (sum, _)=try await URLSession.shared.data(from: sumURL)
-		let (dmg, _)=try await URLSession.shared.download(from: release.download)
+		let (sum, sumResponse)=try await URLSession.shared.data(from: sumURL)
+		guard (sumResponse as? HTTPURLResponse)?.statusCode==200 else { throw URLError(.badServerResponse) }
+		let (dmg, dmgResponse)=try await URLSession.shared.download(from: release.download)
 		defer{ try? FileManager.default.removeItem(at: dmg) }
+		guard (dmgResponse as? HTTPURLResponse)?.statusCode==200 else { throw URLError(.badServerResponse) }
 		let digest=SHA256.hash(data: try Data(contentsOf: dmg)).map{ String(format: "%02x", $0) }.joined()
 		guard checksum(in: String(decoding: sum, as: UTF8.self))==digest else { throw Failure.checksum }
 		
