@@ -307,7 +307,6 @@ enum Updates{
 		let checksum:URL?
 	}
 	
-	static let api=URL(string: "https://api.github.com/repos/Syvyj/dropyk-mac/releases/latest")!
 	static let releases=URL(string: "https://github.com/Syvyj/dropyk-mac/releases/latest")!
 	
 	static var current:String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
@@ -323,20 +322,24 @@ enum Updates{
 		return false
 	}
 	
+	/// The plain releases page, not api.github.com: the API allows 60 requests an hour per home
+	/// address, and everything at home shares them. The page redirects to the newest release's tag.
 	static func latest() async throws -> Release{
-		var request=URLRequest(url: api, timeoutInterval: 20)
-		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-		let (data, response)=try await URLSession.shared.data(for: request)
-		guard (response as? HTTPURLResponse)?.statusCode==200 else { throw URLError(.badServerResponse) }
-		struct Answer:Decodable{
-			struct Asset:Decodable{ let name:String; let browser_download_url:URL }
-			let tag_name:String
-			let assets:[Asset]
-		}
-		let answer=try JSONDecoder().decode(Answer.self, from: data)
-		let dmg=answer.assets.first{ $0.name.hasSuffix(".dmg") }?.browser_download_url ?? releases
-		let sum=answer.assets.first{ $0.name.hasSuffix(".dmg.sha256") }?.browser_download_url
-		return Release(version: answer.tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "v")), download: dmg, checksum: sum)
+		var request=URLRequest(url: releases, timeoutInterval: 20)
+		request.httpMethod="HEAD"
+		let (_, response)=try await URLSession.shared.data(for: request)
+		guard let http=response as? HTTPURLResponse, http.statusCode==200, let url=http.url,
+			  let tag=release(from: url) else { throw URLError(.badServerResponse) }
+		let files=URL(string: "https://github.com/Syvyj/dropyk-mac/releases/download/")!.appendingPathComponent(tag)
+		return Release(version: tag.trimmingCharacters(in: CharacterSet(charactersIn: "v")),
+					   download: files.appendingPathComponent("Dropyk.dmg"), checksum: files.appendingPathComponent("Dropyk.dmg.sha256"))
+	}
+	
+	/// ".../releases/tag/v0.2.2" → "v0.2.2"; nil for any other page (no releases yet).
+	static func release(from url:URL) -> String?{
+		let parts=url.pathComponents
+		guard parts.count>=2, parts[parts.count-2]=="tag" else { return nil }
+		return parts.last
 	}
 	
 	/// Why an update couldn't be installed; the user can still download it by hand.
